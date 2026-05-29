@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caching in Distributed Systems : A Complete Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --ink-faint: #7a7a7a;
+    --page: #faf9f7;
+    --surface: #f2efe9;
+    --border: #ddd9d0;
+    --accent: #c0392b;
+    --accent-soft: #f9ece9;
+    --accent-gold: #b8860b;
+    --accent-teal: #0e7a6e;
+    --accent-teal-soft: #e6f4f2;
+    --accent-blue: #1a4e8c;
+    --accent-blue-soft: #eaf1fb;
+    --highlight: #fff9e6;
+    --code-bg: #f5f4f0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e8e4dc;
+      --ink-soft: #b8b4ac;
+      --ink-faint: #7a7674;
+      --page: #1a1916;
+      --surface: #211f1c;
+      --border: #333028;
+      --accent: #e05a4a;
+      --accent-soft: #2c1e1a;
+      --accent-gold: #d4a017;
+      --accent-teal: #2ab9a8;
+      --accent-teal-soft: #0e2624;
+      --accent-blue: #5b8fcc;
+      --accent-blue-soft: #121e30;
+      --highlight: #2a2710;
+      --code-bg: #252320;
+    }
+  }
+
+  html { font-size: 18px; }
+  body {
+    font-family: 'Source Serif 4', Georgia, serif;
+    background: var(--page);
+    color: var(--ink);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* HEADER */
+  .masthead {
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Playfair Display', serif;
+  }
+  .masthead-logo {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .masthead-tag {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink-faint);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* HERO */
+  .hero {
+    max-width: 720px;
+    margin: 4rem auto 0;
+    padding: 0 2rem;
+  }
+  .hero-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .hero-kicker::before {
+    content: '';
+    display: inline-block;
+    width: 28px;
+    height: 1.5px;
+    background: var(--accent);
+  }
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 1.2rem;
+  }
+  .hero-deck {
+    font-size: 1.05rem;
+    font-weight: 300;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    margin-bottom: 2rem;
+    font-style: italic;
+  }
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink-faint);
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-meta span { display: flex; align-items: center; gap: 0.35rem; }
+  .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--border); }
+
+  /* ARTICLE BODY */
+  article {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 2rem 6rem;
+  }
+
+  /* PULLQUOTE */
+  .pullquote {
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.5rem;
+    margin: 2.5rem 0;
+    background: var(--accent-soft);
+    border-radius: 0 6px 6px 0;
+  }
+  .pullquote p {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  .pullquote cite {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 0.6rem;
+    font-style: normal;
+  }
+
+  /* SECTIONS */
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 3rem 0 0.75rem;
+    line-height: 1.3;
+  }
+  h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 2rem 0 0.5rem;
+  }
+  p { margin-bottom: 1.2rem; }
+  p + p { text-indent: 0; }
+
+  /* TECHNIQUE CARDS */
+  .technique-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+  .technique-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+  }
+  .technique-card .tc-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    margin-bottom: 0.4rem;
+  }
+  .technique-card .tc-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+  }
+  .technique-card .tc-desc {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    font-family: 'Source Serif 4', serif;
+  }
+  .badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.57rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-top: 0.6rem;
+  }
+  .badge-red { background: var(--accent-soft); color: var(--accent); }
+  .badge-teal { background: var(--accent-teal-soft); color: var(--accent-teal); }
+  .badge-blue { background: var(--accent-blue-soft); color: var(--accent-blue); }
+  .badge-gold { background: var(--highlight); color: var(--accent-gold); }
+
+  /* DIVIDER */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 3rem 0;
+  }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-symbol {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    color: var(--border);
+  }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.2rem 1.4rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+  .code-block pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .code-comment { color: var(--ink-faint); }
+  .code-key { color: var(--accent-teal); }
+  .code-val { color: var(--accent-blue); }
+
+  /* CALLOUT BOXES */
+  .callout {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.4rem;
+    margin: 2rem 0;
+  }
+  .callout.callout-info { background: var(--accent-blue-soft); border-color: var(--accent-blue); }
+  .callout.callout-warn { background: var(--highlight); border-color: var(--accent-gold); }
+  .callout.callout-success { background: var(--accent-teal-soft); border-color: var(--accent-teal); }
+  .callout-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: 0.5rem;
+  }
+  .callout-info .callout-header { color: var(--accent-blue); }
+  .callout-warn .callout-header { color: var(--accent-gold); }
+  .callout-success .callout-header { color: var(--accent-teal); }
+  .callout p { font-size: 0.88rem; margin-bottom: 0; line-height: 1.6; color: var(--ink); }
+
+  /* COMPARISON TABLE */
+  .compare-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.8rem; }
+  .compare-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    padding: 0.7rem 0.8rem;
+    text-align: left;
+    border-bottom: 1.5px solid var(--border);
+  }
+  .compare-table td {
+    padding: 0.7rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table td:first-child {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  /* INLINE CODE */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: var(--accent);
+  }
+
+  /* FIGURE */
+  .fig {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    text-align: center;
+  }
+  .fig-diagram {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    line-height: 2.1;
+    color: var(--ink);
+    text-align: left;
+    display: inline-block;
+  }
+  .fig-caption {
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    margin-top: 1rem;
+    font-style: italic;
+    font-family: 'Source Serif 4', serif;
+  }
+  .arrow { color: var(--accent-teal); font-weight: bold; }
+  .box-label {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 8px;
+    background: var(--code-bg);
+  }
+
+  /* FURTHER READING */
+  .reading-list { list-style: none; padding: 0; }
+  .reading-list li {
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+  .reading-list li:last-child { border-bottom: none; }
+  .reading-list li strong {
+    display: block;
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 0.9rem;
+    margin-bottom: 0.2rem;
+  }
+  .reading-list li span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+  }
+
+  /* FOOTER */
+  footer {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* READING PROGRESS */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.1s linear;
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<header class="masthead">
+  <a class="masthead-logo" href="#">Distributed Systems Review</a>
+  <span class="masthead-tag">Engineering · May 2026</span>
+</header>
+
+<div class="hero">
+  <div class="hero-kicker">Deep Dive</div>
+  <h1>Everything You Need to Know About Caching in Distributed Systems</h1>
+  <p class="hero-deck">From LRU and LFU eviction policies to AI-driven prefetching, consistency models, and thundering herd mitigation  a practitioner's map of the caching landscape in 2025–2026.</p>
+  <div class="hero-meta">
+    <span>15 min read</span>
+    <div class="dot"></div>
+    <span>Compiled from 2024–2025 research</span>
+    <div class="dot"></div>
+    <span>Systems · Performance · Architecture</span>
+  </div>
+</div>
+
+<article>
+
+  <p>Every millisecond counts in a distributed system. A database round-trip that takes 50 ms, repeated a million times a day, adds up to real user pain  and real infrastructure cost. Caching is the oldest trick in the book, and yet research published in 2024–2025 shows we are still finding radically new ways to do it.</p>
+
+  <p>This article pulls together the latest academic findings and industry patterns to give you a complete, plain-language map of the caching landscape. No jargon left unexplained. Let's start from first principles and build up to the frontier.</p>
+
+  <div class="pullquote">
+    <p>"In the architecture of contemporary distributed systems, caching serves as a vital optimization strategy  influencing system performance, scalability, and reliability alike."</p>
+    <cite>Shah &amp; Hazarika, International Journal of Science and Engineering Applications, 2025</cite>
+  </div>
+
+  <!-- ======================== SECTION 1 ======================== -->
+  <h2>Why caching exists at all</h2>
+
+  <p>A cache is a fast, small store that sits between your application and a slower, larger store  a database, a file system, a remote API. When data is requested, you check the cache first. If it's there (a <em>cache hit</em>), you return it immediately. If it isn't (a <em>cache miss</em>), you fetch from the slow source, store a copy in the cache, and return it. Simple idea. Profound consequences.</p>
+
+  <p>The power of caching rests on a concept called <em>locality of reference</em>: in most real workloads, a small fraction of the data is requested the vast majority of the time. If that 20% of data fits in a cache, you can serve 80% of requests at memory speed instead of disk speed.</p>
+
+  <div class="callout callout-info">
+    <div class="callout-header">📌 Key Metric</div>
+    <p>In a well-tuned production system, a three-layer cache (in-memory → Redis → database) can push cache hit rates close to 99% for hot data  reducing database load by roughly 80% and dropping p99 latency from seconds to milliseconds.</p>
+  </div>
+
+  <!-- ======================== SECTION 2 ======================== -->
+  <h2>The architecture: where does the cache live?</h2>
+
+  <p>Before worrying about what to cache, you need to know <em>where</em> to cache it. There are three main placements, each with distinct tradeoffs.</p>
+
+  <div class="technique-grid">
+    <div class="technique-card">
+      <div class="tc-label">Tier 1</div>
+      <div class="tc-name">In-process / Local cache</div>
+      <div class="tc-desc">Lives inside your application process. No network hop  sub-microsecond access. Limited to a single node; no sharing across instances.</div>
+      <span class="badge badge-red">Fastest</span>
+    </div>
+    <div class="technique-card">
+      <div class="tc-label">Tier 2</div>
+      <div class="tc-name">Distributed cache</div>
+      <div class="tc-desc">Shared across all application nodes (Redis, Memcached). Single source of truth. One network hop (~1 ms), but horizontally scalable.</div>
+      <span class="badge badge-teal">Scalable</span>
+    </div>
+    <div class="technique-card">
+      <div class="tc-label">Tier 3</div>
+      <div class="tc-name">Edge / CDN cache</div>
+      <div class="tc-desc">Sits at points of presence (PoPs) geographically close to users. Best for public, cacheable HTTP responses. Removes origin from the critical path entirely.</div>
+      <span class="badge badge-blue">Global</span>
+    </div>
+  </div>
+
+  <p>Most production systems layer all three: a small in-process LRU for the hottest keys, a distributed cache like Redis for shared state, and a CDN for public assets and API responses that can be made publicly cacheable.</p>
+
+  <!-- ARCHITECTURE DIAGRAM -->
+  <div class="fig">
+    <div class="fig-diagram">
+User Request
+    │
+    ▼
+<span class="box-label">Edge / CDN PoP</span>  ← <span class="arrow">Cache Hit → return (0 ms extra latency)</span>
+    │ miss
+    ▼
+<span class="box-label">App Server (In-Process LRU)</span>  ← <span class="arrow">Hit → return (&lt;0.1 ms)</span>
+    │ miss
+    ▼
+<span class="box-label">Distributed Cache (Redis)</span>  ← <span class="arrow">Hit → return (~1 ms)</span>
+    │ miss
+    ▼
+<span class="box-label">Database / Origin Store</span>  ← <span class="arrow">Always slow (50–200 ms)</span>
+    </div>
+    <div class="fig-caption">Fig 1. The three-layer cache architecture. Each tier is 10–100× faster than the next.</div>
+  </div>
+
+  <!-- ======================== SECTION 3 ======================== -->
+  <h2>Caching patterns: how you read and write</h2>
+
+  <p>Knowing where the cache lives is only half the picture. The other half is <em>how</em> your application interacts with it. There are four classic patterns, each optimized for a different read/write ratio and consistency requirement.</p>
+
+  <h3>Cache-aside (lazy loading)</h3>
+  <p>The application is responsible for all cache interactions. On a read: check cache → miss → query DB → write to cache → return. On a write: update DB, then invalidate or update cache. This is the most common pattern because it gives you explicit control and never stores data that isn't actually needed. The cost: every cache miss results in three operations (read cache, read DB, write cache).</p>
+
+  <h3>Read-through</h3>
+  <p>The cache sits transparently in front of the database. On a miss, the cache itself fetches from the DB and updates itself. The application only ever talks to the cache. Simpler code, but the first request after a cold start is slow, and you lose some control over what gets cached.</p>
+
+  <h3>Write-through</h3>
+  <p>Every write goes to the cache and the database simultaneously. Data is always consistent, but writes are slower because you need to confirm both stores. This is the right choice when stale reads are unacceptable:for example in financial systems or user session data.</p>
+
+  <h3>Write-behind (write-back)</h3>
+  <p>Writes go to the cache immediately; the database is updated asynchronously in the background. This delivers maximum write throughput your application doesn't wait for the database at all. The risk is data loss if the cache fails before the async write completes.</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Pattern</th>
+        <th>Read latency</th>
+        <th>Write latency</th>
+        <th>Consistency</th>
+        <th>Best for</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Cache-aside</td>
+        <td>Fast on hit</td>
+        <td>Normal</td>
+        <td>Eventually consistent</td>
+        <td>Read-heavy, explicit control</td>
+      </tr>
+      <tr>
+        <td>Read-through</td>
+        <td>Fast on hit</td>
+        <td>Normal</td>
+        <td>Eventually consistent</td>
+        <td>Simpler codebases</td>
+      </tr>
+      <tr>
+        <td>Write-through</td>
+        <td>Fast on hit</td>
+        <td>Slower</td>
+        <td>Strong consistency</td>
+        <td>Finance, sessions</td>
+      </tr>
+      <tr>
+        <td>Write-behind</td>
+        <td>Fast on hit</td>
+        <td>Very fast</td>
+        <td>Weak (risk of loss)</td>
+        <td>High-throughput writes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ======================== SECTION 4 ======================== -->
+  <div class="divider"><div class="divider-line"></div><div class="divider-symbol">◆</div><div class="divider-line"></div></div>
+
+  <h2>Eviction policies: what gets thrown out when the cache is full?</h2>
+
+  <p>A cache has a fixed size. When it fills up, something has to go. The eviction policy decides what. This is one of the most actively researched areas in the field:and recent work shows that the gap between a naive policy and a smart one is enormous.</p>
+
+  <h3>LRU:Least Recently Used</h3>
+  <p>Evict the item that was accessed the longest time ago. The intuition: if you haven't needed it recently, you probably don't need it soon. LRU works extremely well for workloads with strong temporal locality (think: user sessions, trending content). It struggles with <em>cyclic</em> or <em>scanning</em> workloads where data is accessed once in a large loop:every item gets evicted before the loop completes, giving 0% hit rate.</p>
+
+  <h3>LFU:Least Frequently Used</h3>
+  <p>Track how many times each item has been accessed; evict the least-accessed one. LFU excels when content popularity is stable:a highly-accessed configuration object should never be evicted, even if it wasn't touched recently. Downside: LFU is slow to adapt when popularity shifts. An item that was hot six months ago accumulates a high count and becomes effectively immortal.</p>
+
+  <h3>ARC:Adaptive Replacement Cache</h3>
+  <p>ARC runs two LRU lists in parallel:one for recently used items, one for frequently used items:and dynamically adjusts the boundary between them based on which list is producing more hits. This makes it more efficient than either pure LRU or LFU alone, and it's used in production database systems like PostgreSQL.</p>
+
+  <div class="callout callout-success">
+    <div class="callout-header">📊 2025 Research Result</div>
+    <p>A 2025 study presented at an ACM conference introduced CRFP (Composite Replacement Framework Protocol), a hybrid of LRU and LFU with a self-tuning mechanism. CRFP achieved 12–18% higher cache hit ratios across both OLTP (TPC-C) and decision-support (TPC-H) benchmarks compared to standalone LRU or LFU, while also reducing eviction rates under large-scale operations.</p>
+  </div>
+
+  <h3>LFRU:Least Following and Recently Used (2025)</h3>
+  <p>Researchers at UT Austin introduced LFRU in a 2025 paper targeting Virtual Reality environments where groups of users share the same virtual space and therefore request the same content simultaneously. LFRU dynamically infers <em>causal relationships</em> between requests:if users who request item A tend to request item B shortly after, LFRU pre-caches B. In structured correlation settings, it outperformed LRU by up to 2.9× and LFU by up to 1.9×.</p>
+
+  <h3>LeCaR:Learning Cache Replacement</h3>
+  <p>LeCaR is an online machine learning framework that treats eviction as a two-armed bandit problem between LRU and LFU. At every cache miss, it probabilistically chooses whether to use a recency or frequency policy, updating its weights based on <em>regret</em>:how much each policy "cost" through the misses it caused. Research shows LeCaR outperforms ARC by over 18× in scenarios where the working set exceeds the cache size.</p>
+
+  <!-- ======================== SECTION 5 ======================== -->
+  <h2>The frontier: AI and ML-driven caching</h2>
+
+  <p>Since 2023, the most exciting caching research has been at the intersection of machine learning and cache management. The intuition is straightforward: if past access patterns can predict future accesses, a model trained on those patterns should outperform any hand-crafted heuristic.</p>
+
+  <p>A 2026 ACM Computing Surveys paper reviewed the state of ML-based caching and tiering across modern storage stacks, finding that ML techniques outperform traditional policies because they can learn access patterns that are too complex and irregular for LRU/LFU to handle. Here are the key ML approaches:</p>
+
+  <div class="technique-grid">
+    <div class="technique-card">
+      <div class="tc-label">Approach</div>
+      <div class="tc-name">LSTM-based prediction</div>
+      <div class="tc-desc">Treats access sequences like a language and uses recurrent networks to predict the next requested item. A 2026 benchmark found LSTM achieves 92.7% prediction accuracy on workloads with strong temporal patterns.</div>
+      <span class="badge badge-teal">Temporal</span>
+    </div>
+    <div class="technique-card">
+      <div class="tc-label">Approach</div>
+      <div class="tc-name">Deep reinforcement learning</div>
+      <div class="tc-desc">Frames eviction as an RL problem: the agent observes the cache state and receives rewards for hits. DQN and policy-gradient methods can discover strategies that go beyond supervised learning.</div>
+      <span class="badge badge-blue">Adaptive</span>
+    </div>
+    <div class="technique-card">
+      <div class="tc-label">Approach</div>
+      <div class="tc-name">DRNN prefetching (CERN)</div>
+      <div class="tc-desc">A 2025 ACM paper from CERN used Deep Recurrent Neural Networks to anticipate future data requests in a distributed scientific grid. The overhead was found to be negligible while improving hit rates significantly.</div>
+      <span class="badge badge-gold">Scientific</span>
+    </div>
+    <div class="technique-card">
+      <div class="tc-label">Approach</div>
+      <div class="tc-name">Catcher+ (autonomous)</div>
+      <div class="tc-desc">Autonomously learns the relationship between cache replacement policies and workload distributions, optimizing decisions based on observed I/O patterns without manual tuning.</div>
+      <span class="badge badge-red">Self-tuning</span>
+    </div>
+  </div>
+
+  <div class="callout callout-warn">
+    <div class="callout-header">⚠ The catch</div>
+    <p>ML-based caching introduces computational overhead and requires training data. Research notes that some algorithms suffer from scalability and generalizability concerns:a model trained on one workload may perform poorly on another. Edge devices with strict resource constraints are especially challenging deployment targets.</p>
+  </div>
+
+  <!-- ======================== SECTION 6 ======================== -->
+  <div class="divider"><div class="divider-line"></div><div class="divider-symbol">◆</div><div class="divider-line"></div></div>
+
+  <h2>Distributing the cache: consistent hashing</h2>
+
+  <p>When your cache needs to span multiple nodes  because no single machine has enough RAM you need a way to map keys to nodes. The naive approach is modular hashing: <code>node = hash(key) % N</code>. This works fine until a node joins or leaves. With N=10 nodes, adding one more remaps roughly 90% of all keys to different nodes at once. For a cache with hundreds of millions of entries, that's a thundering-herd event:the entire cache effectively goes cold simultaneously.</p>
+
+  <p><strong>Consistent hashing</strong> solves this by mapping both nodes and keys onto a conceptual ring (a circular hash space from 0 to 2³²). A key is served by the first node clockwise from its position on the ring. When a node joins or leaves, only approximately <code>K/N</code> keys need to be remapped:typically 1–10% instead of 90%. This is what powers Redis Cluster, Memcached clients, and most CDN key-routing systems.</p>
+
+  <div class="code-block">
+    <pre><span class="code-comment"># Consistent hashing : key insight</span>
+<span class="code-comment"># Modular hashing (naive):</span>
+node = hash(key) <span class="code-key">%</span> N           <span class="code-comment"># N → N+1 remaps ~90% of keys</span>
+
+<span class="code-comment"># Consistent hashing (ring):</span>
+node = ring.successor(hash(key)) <span class="code-comment"># N → N+1 remaps only ~K/N keys</span>
+
+<span class="code-comment"># With virtual nodes (vnodes):</span>
+<span class="code-comment"># Each physical node maps to M positions on the ring</span>
+<span class="code-comment"># → smoother distribution, better failure handling</span></pre>
+  </div>
+
+  <!-- ======================== SECTION 7 ======================== -->
+  <h2>Failure modes you must know about</h2>
+
+  <p>Caching is also where distributed systems hide some of their nastiest failure modes. Each has a name and a mitigation:you should know all three.</p>
+
+  <h3>Cache stampede (thundering herd)</h3>
+  <p>A popular cached item expires. Simultaneously, hundreds or thousands of application instances notice the cache miss and all query the database at once. The database, suddenly handling the full load it was shielded from, falls over. This is called a <em>cache stampede</em>, or thundering herd problem.</p>
+  <p><strong>Mitigations:</strong> Use distributed locks so only one instance queries the database while others wait. Use request coalescing (aggregate duplicate requests into one). Use the <em>XFetch algorithm</em>:probabilistically recompute the cached value before it expires, proportional to how close to expiry it is. Add jitter to TTLs so not all keys expire simultaneously.</p>
+
+  <h3>Cache avalanche</h3>
+  <p>Similar to cache stampede, but the trigger is that many keys expire at the same moment (e.g. all keys were set with the same TTL at the same time). The entire cache layer effectively goes empty at once, flooding the database. The fix: randomize TTLs with a jitter factor so expirations are spread out.</p>
+
+  <h3>Cache penetration</h3>
+  <p>Requests for data that does <em>not exist</em> (invalid IDs, malformed keys) always miss the cache and always hit the database. An attacker can exploit this deliberately with a stream of nonexistent keys. The fix: cache negative results too (a short-TTL <code>null</code> entry), or use a Bloom filter to quickly check whether a key could possibly exist before querying the database.</p>
+
+  <div class="callout callout-info">
+    <div class="callout-header">💡 Real-world example</div>
+    <p>Uber mitigates cache stampedes for surge-pricing calculations by implementing request coalescing in its distributed caching architecture:aggregating all duplicate requests for the same key into a single backend query before the result is fanned back out to all waiting callers.</p>
+  </div>
+
+  <!-- ======================== SECTION 8 ======================== -->
+  <div class="divider"><div class="divider-line"></div><div class="divider-symbol">◆</div><div class="divider-line"></div></div>
+
+  <h2>Consistency: the hardest problem</h2>
+
+  <p>The hardest challenge in distributed caching is not speed  it's correctness. When data changes in your database, the cached copy becomes stale. How stale can it get before it causes real problems? The answer depends on your consistency model.</p>
+
+  <p>A 2025 paper in <em>Frontiers in Computer Science</em> by Repin &amp; Sidorov pointed out that existing general-purpose systems like Redis, despite their extensive feature sets, do not guarantee strong data consistency:and designing application software around this gap requires significant additional complexity.</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Guarantee</th>
+        <th>Tradeoff</th>
+        <th>Use case</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Strong consistency</td>
+        <td>All nodes always see the latest value</td>
+        <td>Higher latency, lower availability</td>
+        <td>Financial data, auth tokens</td>
+      </tr>
+      <tr>
+        <td>Eventual consistency</td>
+        <td>Updates propagate over time</td>
+        <td>Possible stale reads</td>
+        <td>Recommendation engines, feed rankings</td>
+      </tr>
+      <tr>
+        <td>TTL-based</td>
+        <td>Stale for at most TTL seconds</td>
+        <td>Bounded staleness</td>
+        <td>Most web applications</td>
+      </tr>
+      <tr>
+        <td>Event-driven invalidation</td>
+        <td>Invalidated on write event</td>
+        <td>Complex infrastructure (Kafka, CDC)</td>
+        <td>Real-time dashboards</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>The most robust production pattern ties cache invalidation to <em>domain events</em> when a record is updated in the database, a message is published to a queue, and consumers invalidate or refresh the relevant cache keys. This is more complex than simple TTLs, but eliminates the entire class of "reading stale data for 5 minutes" bugs.</p>
+
+  <!-- ======================== SECTION 9 ======================== -->
+  <h2>Edge caching and the Information-Centric Network model</h2>
+
+  <p>A 2025 Wiley survey examined caching strategies across Information-Centric Networking (ICN), a paradigm that treats content as a first-class network citizen rather than routing to specific hosts. In ICN, every network node:not just dedicated cache servers:can store and serve content. This approach raises hit rates, boosts throughput, and cuts transmission delays, but requires domain-specific caching strategies for each environment.</p>
+
+  <p>The survey highlights a key tension: strategies that work well in resource-constrained IoT environments (intermittent connectivity, tiny memory) are completely unsuitable for vehicular networks (high-mobility, rapidly-changing content) or edge computing nodes (low-latency, proximity-based serving). There is no universal policy.</p>
+
+  <!-- ======================== SECTION 10 ======================== -->
+  <div class="divider"><div class="divider-line"></div><div class="divider-symbol">◆</div><div class="divider-line"></div></div>
+
+  <h2>Putting it together: choosing your strategy</h2>
+
+  <p>Here is a practical decision tree. These are not rigid rules  they are starting points. Measure everything; your workload's actual access pattern will always surprise you.</p>
+
+  <div class="fig">
+    <div class="fig-diagram">
+Is data accessed repeatedly by many users?
+    │
+    ├─ <span class="arrow">Yes</span> → Use a distributed cache (Redis/Memcached)
+    │              │
+    │              ├─ Is data public + HTTP-cacheable?
+    │              │    └─ <span class="arrow">Yes</span> → Add CDN layer on top
+    │              │
+    │              ├─ Access pattern: recently popular?
+    │              │    └─ <span class="arrow">Yes</span> → LRU or ARC eviction
+    │              │
+    │              └─ Access pattern: stable popularity?
+    │                   └─ <span class="arrow">Yes</span> → LFU or TinyLFU eviction
+    │
+    └─ <span class="arrow">No</span> → In-process local cache (e.g. LRU map)
+                   │
+                   └─ Very high traffic, skewed keys?
+                        └─ <span class="arrow">Yes</span> → Add ML-based prefetching
+    </div>
+    <div class="fig-caption">Fig 2. A rough decision tree for choosing your caching architecture and policy.</div>
+  </div>
+
+  <!-- ======================== SECTION 11 ======================== -->
+  <h2>The road ahead</h2>
+
+  <p>Three trends are reshaping caching as you read this:</p>
+
+  <p><strong>Federated learning for cache policies.</strong> Training ML cache policies on a single cluster's access logs works, but misses patterns visible across many clusters. Federated learning:where models train locally and share only gradients, not data:could enable cross-instance knowledge sharing while preserving privacy.</p>
+
+  <p><strong>Transformer-based access prediction.</strong> LSTM models capture sequential patterns well, but Transformers with self-attention could capture the longer-range dependencies visible in complex temporal access patterns. Early 2025 research is already exploring this direction.</p>
+
+  <p><strong>Serverless and intelligent edge.</strong> The operational complexity of managing cache clusters is increasingly being abstracted away by serverless offerings. Meanwhile, ML-based prefetching is moving to edge nodes, pushing intelligence closer to users. The fundamental principles remain constant:understand your access patterns, design for failure, and measure everything:even as the tooling evolves rapidly.</p>
+
+  <div class="pullquote">
+    <p>"ML techniques not only increase cache hit rates and reduce latency but also provide scalable, cost-effective solutions that intelligently place data across different storage media."</p>
+    <cite>ACM Computing Surveys, ML-Based Caching and Tiering Review, 2026</cite>
+  </div>
+
+  <!-- ======================== FURTHER READING ======================== -->
+  <h2>Further reading</h2>
+  <ul class="reading-list">
+    <li>
+      <strong>An In-Depth Analysis of Modern Caching Strategies in Distributed Systems</strong>
+      Shah &amp; Hazarika  <span>IJSEA · January 2025</span>
+    </li>
+    <li>
+      <strong>Comparative Analysis of Distributed Caching Algorithms</strong>
+      Mayer et al.  <span>arXiv 2504.02220 · April 2025</span>
+    </li>
+    <li>
+      <strong>Distributed Caching System with Strong Consistency Model</strong>
+      Repin &amp; Sidorov  <span>Frontiers in Computer Science · May 2025</span>
+    </li>
+    <li>
+      <strong>Advancements in Cache Management: A Review of ML Innovations</strong>
+      Krishna  <span>Frontiers in Artificial Intelligence · February 2025</span>
+    </li>
+    <li>
+      <strong>Machine Learning-Based Caching and Tiering in Modern Data Storage</strong>
+       <span>ACM Computing Surveys · 2026</span>
+    </li>
+    <li>
+      <strong>Optimized Caching Strategy: A Hybrid of LRU and LFU Methods (CRFP)</strong>
+       <span>ACM ICNSSE Proceedings · 2025</span>
+    </li>
+    <li>
+      <strong>Inferring Causal Relationships to Improve Caching for VR (LFRU)</strong>
+      Bari, De Veciana, Zhou  <span>arXiv 2512.08626 · 2025</span>
+    </li>
+    <li>
+      <strong>AI-Driven Strategies for Distributed Caching: A CMS Case Study</strong>
+       <span>ACM PEARC 2025</span>
+    </li>
+    <li>
+      <strong>Classifications and Analysis of Caching Strategies in ICN</strong>
+      Qaiser et al.  <span>Wiley Engineering Reports · 2025</span>
+    </li>
+  </ul>
+
+</article>
+
+<footer>
+  <span>Distributed Systems Review · Vol. 4</span>
+  <span>May 2026</span>
+  <span>Research synthesis · Not peer-reviewed</span>
+</footer>
+
+<script>
+  const bar = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    bar.style.width = pct.toFixed(1) + '%';
+  });
+</script>
+</body>
+</html>
